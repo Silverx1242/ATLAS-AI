@@ -1,0 +1,94 @@
+### Python ###
+# Bytecode compilado
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribución/Empaquetado
+dist/
+build/
+*.egg-info/
+
+### Entorno Virtual ###
+venv/
+env/
+.env
+.venv
+ENV/
+
+### Modelos y Datos ###
+# Modelos GGUF
+models/*.gguf
+MyModels/
+# Datos y vectores
+data/
+chroma_db/
+*.sqlite3
+.chroma/
+
+### Logs y Caché ###
+logs/
+*.log
+.cache/
+.pytest_cache/
+.coverage
+coverage.xml
+
+### IDEs y Editores ###
+# VSCode
+.vscode/
+.history/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# Otros editores
+*.swp
+*.swo
+*~
+
+### Sistema Operativo ###
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+### Docker ###
+.docker/
+docker-compose.override.yml
+
+### Configuración Local ###
+# Configuraciones específicas del usuario
+config.local.py
+.env.local
+.env.*.local
+
+### Temporales ###
+tmp/
+temp/
+*.tmp
+*.temp
+build_temp_*/
+build_log.txt
+
+
+### Jupyter Notebooks ###
+.ipynb_checkpoints
+*.ipynb
+
+### ChromaDB ###
+# Archivos específicos de ChromaDB
+chroma.sqlite3
+embeddings.pkl
+
+### Documentación ###
+docs/_build/
+site/
