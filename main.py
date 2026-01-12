@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 import logging
+from logging.handlers import RotatingFileHandler
 from typing import Optional, Dict, Any
 import torch
 import pynvml  # Add pynvml import
@@ -33,11 +34,23 @@ if sys.platform == 'win32':
     except Exception:
         pass  # If it fails, continue without reconfiguring
 
+# Configure file handler with rotation (max 10MB per file, keep 5 backups)
+file_handler = RotatingFileHandler(
+    "rag_system.log",
+    maxBytes=10 * 1024 * 1024,  # 10 MB
+    backupCount=5,  # Keep 5 backup files
+    encoding='utf-8'
+)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(
+    logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("rag_system.log", encoding='utf-8'),
+        file_handler,
         console_handler
     ]
 )
