@@ -20,7 +20,7 @@ class GGUFModel:
     
     def __init__(
         self,
-        model_path: str = MODEL_PATH,
+        model_path: Optional[str] = MODEL_PATH,
         n_ctx: int = MODEL_CONTEXT_SIZE,
         n_threads: int = MODEL_N_THREADS,
         n_gpu_layers: int = MODEL_N_GPU_LAYERS,
