@@ -25,9 +25,20 @@ class GGUFModel:
         n_threads: int = MODEL_N_THREADS,
         n_gpu_layers: int = MODEL_N_GPU_LAYERS,
         main_gpu: int = GPU_MAIN_DEVICE,
-        tensor_split: Optional[List[float]] = None
+        tensor_split: Optional[List[float]] = None,
+        embedding: bool = False
     ):
-        """Initialize the GGUF model."""
+        """Initialize the GGUF model.
+        
+        Args:
+            model_path: Path to the GGUF model file
+            n_ctx: Context window size
+            n_threads: Number of threads for CPU inference
+            n_gpu_layers: Number of layers to offload to GPU (-1 for all layers)
+            main_gpu: Main GPU device index
+            tensor_split: Tensor split configuration for multi-GPU
+            embedding: If True, enable embedding mode (required for get_embedding method)
+        """
         if model_path is None:
             raise ValueError("A model path (model_path) is required")
         self.model_path = str(model_path)
@@ -36,6 +47,7 @@ class GGUFModel:
         self.n_gpu_layers = n_gpu_layers
         self.main_gpu = main_gpu
         self.tensor_split = tensor_split
+        self.embedding = embedding
         
         # Initialize NVML
         self.gpu_name = None
@@ -114,7 +126,8 @@ class GGUFModel:
                     "use_mlock": False,
                     "vocab_only": False,
                     "seed": -1,
-                    "verbose": True
+                    "verbose": True,
+                    "embedding": self.embedding
                 }
                 
                 # Remove unsupported parameters
@@ -128,7 +141,8 @@ class GGUFModel:
                     "n_threads": self.n_threads,
                     "n_gpu_layers": 0,
                     "use_mmap": True,
-                    "use_mlock": False
+                    "use_mlock": False,
+                    "embedding": self.embedding
                 }
 
             # Load model

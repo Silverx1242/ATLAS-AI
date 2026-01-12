@@ -41,7 +41,8 @@ class GGUFEmbeddingFunction:
             model_path=model_path,
             n_gpu_layers=n_gpu_layers,
             n_threads=n_threads,
-            n_ctx=n_ctx
+            n_ctx=n_ctx,
+            embedding=True  # Enable embedding mode for this model
         )
         logger.info(f"GGUF embedding model loaded from: {model_path}")
     
