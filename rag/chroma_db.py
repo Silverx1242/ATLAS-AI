@@ -10,9 +10,67 @@ from pathlib import Path
 import chromadb
 from chromadb.config import Settings
 
-from config import CHROMA_COLLECTION_NAME, SIMILARITY_THRESHOLD, CHROMA_HOST, CHROMA_PORT, CHROMA_DB_PATH
+from config import (
+    CHROMA_COLLECTION_NAME, SIMILARITY_THRESHOLD, CHROMA_HOST, CHROMA_PORT, CHROMA_DB_PATH,
+    GGUF_EMBEDDING_MODEL_PATH, EMBEDDING_MODEL_N_GPU_LAYERS, EMBEDDING_MODEL_N_THREADS,
+    EMBEDDING_MODEL_CONTEXT_SIZE
+)
+from llm.model import GGUFModel
 
 logger = logging.getLogger(__name__)
+
+
+class GGUFEmbeddingFunction:
+    """
+    Custom embedding function for ChromaDB that uses GGUF models.
+    Implements the ChromaDB embedding function interface.
+    """
+    
+    def __init__(self, model_path: str, n_gpu_layers: int = -1, n_threads: int = 4, n_ctx: int = 2048):
+        """
+        Initialize the GGUF embedding function.
+        
+        Args:
+            model_path: Path to the GGUF embedding model
+            n_gpu_layers: Number of layers to offload to GPU (-1 for all)
+            n_threads: Number of threads for CPU inference
+            n_ctx: Context size
+        """
+        self.model_path = model_path
+        self.embedding_model = GGUFModel(
+            model_path=model_path,
+            n_gpu_layers=n_gpu_layers,
+            n_threads=n_threads,
+            n_ctx=n_ctx
+        )
+        logger.info(f"GGUF embedding model loaded from: {model_path}")
+    
+    def name(self) -> str:
+        """
+        Return the name of this embedding function.
+        Required by ChromaDB for embedding function identification.
+        
+        Returns:
+            String identifier for this embedding function
+        """
+        return "gguf_embedding_function"
+    
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        """
+        Generate embeddings for a list of texts.
+        Required interface for ChromaDB embedding functions.
+        
+        Args:
+            input: List of text strings to embed
+            
+        Returns:
+            List of embeddings (each embedding is a list of floats)
+        """
+        embeddings = []
+        for text in input:
+            embedding = self.embedding_model.get_embedding(text)
+            embeddings.append(embedding)
+        return embeddings
 
 class ChromaVectorStore:
     """Class to handle vector storage with ChromaDB."""
@@ -40,11 +98,23 @@ class ChromaVectorStore:
         self.db_path = db_path or CHROMA_DB_PATH
         self.use_persistent = False
         
-        # Use the same embedding model as AnythingLLM
-        from chromadb.utils import embedding_functions
-        self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
-        )
+        # Initialize embedding function
+        # Use GGUF model if configured, otherwise fallback to SentenceTransformers
+        if GGUF_EMBEDDING_MODEL_PATH and Path(GGUF_EMBEDDING_MODEL_PATH).exists():
+            logger.info(f"Using GGUF embedding model: {GGUF_EMBEDDING_MODEL_PATH}")
+            self.ef = GGUFEmbeddingFunction(
+                model_path=str(GGUF_EMBEDDING_MODEL_PATH),
+                n_gpu_layers=EMBEDDING_MODEL_N_GPU_LAYERS,
+                n_threads=EMBEDDING_MODEL_N_THREADS,
+                n_ctx=EMBEDDING_MODEL_CONTEXT_SIZE
+            )
+        else:
+            # Fallback to SentenceTransformers
+            logger.info("Using SentenceTransformers embedding model (all-MiniLM-L6-v2) as fallback")
+            from chromadb.utils import embedding_functions
+            self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="all-MiniLM-L6-v2"
+            )
         
         # Try to connect to HTTP server first
         try:
@@ -154,9 +224,10 @@ class ChromaVectorStore:
                 "include": ['documents', 'metadatas', 'distances']
             }
 
-            # If we're using a custom embedding function
-            if hasattr(self.ef, 'model'):
-                # Generate embedding manually
+            # If we're using a custom embedding function (GGUF or SentenceTransformer)
+            # ChromaDB should handle this automatically, but for custom functions we may need manual embedding
+            if isinstance(self.ef, GGUFEmbeddingFunction) or hasattr(self.ef, 'model'):
+                # Generate embedding manually for custom functions
                 query_embedding = self.ef([query_text])[0]
                 query_params["query_embeddings"] = [query_embedding]
                 del query_params["query_texts"]  # Remove text if we use direct embedding

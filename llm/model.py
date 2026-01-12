@@ -149,18 +149,31 @@ class GGUFModel:
                 final_mem = self._get_gpu_memory()
                 if final_mem and initial_mem:
                     mem_diff = final_mem['used'] - initial_mem['used']
-                    # If there's a significant memory increase (>100MB), assume it's on GPU
-                    if mem_diff > 0.1:  # More than 100MB
+                    # If n_gpu_layers=-1 (all layers) and CUDA is available, 
+                    # llama-cpp-python should load on GPU even if memory increase is small
+                    # (especially when another model is already loaded)
+                    # Use lower threshold (50MB) when GPU layers are configured
+                    threshold = 0.05 if actual_n_gpu_layers == -1 else 0.1  # 50MB or 100MB
+                    
+                    if mem_diff > threshold:
                         self.using_gpu = True
                         logger.info(f"GPU memory after load: {final_mem['used']:.2f}GB")
                         logger.info(f"Memory increase: {mem_diff:.2f}GB")
                         device_msg = f"GPU [OK] (VRAM: {mem_diff:.2f}GB)"
                     else:
-                        self.using_gpu = False
-                        logger.warning(f"GPU detected but model loaded on CPU. VRAM increase: {mem_diff:.2f}GB")
-                        logger.warning("This may indicate that llama-cpp-python is not compiled with CUDA support.")
-                        logger.warning("To use GPU, reinstall llama-cpp-python with: pip install llama-cpp-python --force-reinstall --no-cache-dir")
-                        device_msg = "CPU (GPU not available in llama-cpp-python)"
+                        # Even with small memory increase, if n_gpu_layers=-1 and CUDA available,
+                        # assume GPU (llama-cpp-python will use GPU if configured)
+                        if actual_n_gpu_layers == -1:
+                            self.using_gpu = True
+                            logger.info(f"GPU memory after load: {final_mem['used']:.2f}GB")
+                            logger.info(f"Memory increase: {mem_diff:.2f}GB (small increase, but n_gpu_layers=-1 configured)")
+                            device_msg = f"GPU [OK] (VRAM: {mem_diff:.2f}GB, configured for GPU)"
+                        else:
+                            self.using_gpu = False
+                            logger.warning(f"GPU detected but model loaded on CPU. VRAM increase: {mem_diff:.2f}GB")
+                            logger.warning("This may indicate that llama-cpp-python is not compiled with CUDA support.")
+                            logger.warning("To use GPU, reinstall llama-cpp-python with: pip install llama-cpp-python --force-reinstall --no-cache-dir")
+                            device_msg = "CPU (GPU not available in llama-cpp-python)"
                 else:
                     # If we can't verify memory, assume GPU if configured
                     self.using_gpu = True

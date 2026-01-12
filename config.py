@@ -55,17 +55,38 @@ else:
             MODEL_PATH = sorted(main_models, key=lambda x: x.stat().st_mtime, reverse=True)[0]
 
 # Similar for embedding model
-_embedding_model_name = os.getenv('EMBEDDING_MODEL_NAME', '')
-if _embedding_model_name:
-    _embedding_path = Path(_embedding_model_name)
-    if not _embedding_path.is_absolute() and not str(_embedding_path).startswith('./') and not str(_embedding_path).startswith('.\\'):
-        EMBEDDING_MODEL_PATH = MODELS_DIR / _embedding_path
-    else:
+# Try GGUF_EMBEDDING_MODEL_PATH first, then fallback to EMBEDDING_MODEL_NAME for backwards compatibility
+_embedding_model_path = os.getenv('GGUF_EMBEDDING_MODEL_PATH', '')
+if not _embedding_model_path:
+    _embedding_model_path = os.getenv('EMBEDDING_MODEL_NAME', '')
+
+if _embedding_model_path:
+    _embedding_path = Path(_embedding_model_path)
+    # Normalize path separators
+    _embedding_path_str = str(_embedding_path).replace('\\', '/')
+    _embedding_path = Path(_embedding_path_str)
+    
+    # If it's an absolute path, use it directly
+    if _embedding_path.is_absolute():
         EMBEDDING_MODEL_PATH = _embedding_path
+    # If it starts with ./ or .\, it's relative to current directory
+    elif str(_embedding_path).startswith('./') or str(_embedding_path).startswith('.\\'):
+        EMBEDDING_MODEL_PATH = BASE_DIR / _embedding_path
+    # If it's just a filename or relative path, combine with MODELS_DIR
+    else:
+        # Check if file exists directly
+        if _embedding_path.exists():
+            EMBEDDING_MODEL_PATH = _embedding_path
+        # If it doesn't exist, try in MODELS_DIR
+        elif (MODELS_DIR / _embedding_path).exists():
+            EMBEDDING_MODEL_PATH = MODELS_DIR / _embedding_path
+        # If it doesn't exist there either, assume it's relative to MODELS_DIR
+        else:
+            EMBEDDING_MODEL_PATH = MODELS_DIR / _embedding_path
 else:
     EMBEDDING_MODEL_PATH = None
 
-# Keep backwards compatibility (deprecated)
+# Keep backwards compatibility (alias)
 GGUF_EMBEDDING_MODEL_PATH = EMBEDDING_MODEL_PATH
 
 # Embedding model configuration
