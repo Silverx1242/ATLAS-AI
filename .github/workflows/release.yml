@@ -1,0 +1,127 @@
+name: Crear Release con Código Fuente
+
+on:
+  push:
+    tags:
+      - 'v*'  # Se activa cuando se crea un tag que comienza con 'v'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Obtener versión del tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Versión detectada: $VERSION"
+
+      - name: Crear archivo ZIP con código fuente
+        run: |
+          # Crear directorio temporal para el código fuente
+          mkdir -p release-source
+          
+          # Copiar archivos de código fuente
+          # Código Python
+          cp -r commands release-source/ 2>/dev/null || true
+          cp -r llm release-source/ 2>/dev/null || true
+          cp -r rag release-source/ 2>/dev/null || true
+          
+          # Archivos principales
+          cp main.py release-source/ 2>/dev/null || true
+          cp config.py release-source/ 2>/dev/null || true
+          cp requirements.txt release-source/ 2>/dev/null || true
+          cp README.md release-source/ 2>/dev/null || true
+          cp LICENSE release-source/ 2>/dev/null || true
+          cp Dockerfile release-source/ 2>/dev/null || true
+          cp docker-compose.yml release-source/ 2>/dev/null || true
+          
+          # Limpiar archivos no deseados del código fuente
+          find release-source -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+          find release-source -type f -name "*.pyc" -delete 2>/dev/null || true
+          find release-source -type f -name "*.pyo" -delete 2>/dev/null || true
+          find release-source -type f -name "*.log" -delete 2>/dev/null || true
+          
+          # Crear archivo ZIP
+          cd release-source
+          zip -r ../ATLAS-AI-source-${{ steps.get_version.outputs.version }}.zip .
+          cd ..
+          
+          echo "Archivo ZIP creado: ATLAS-AI-source-${{ steps.get_version.outputs.version }}.zip"
+
+      - name: Crear Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: "ATLAS-AI ${{ steps.get_version.outputs.version }} - Versión Deprecada"
+          body: |
+            ## ⚠️ ADVERTENCIA: Versión Deprecada
+            
+            **Esta versión será deprecada próximamente.** 
+            
+            Esta release contiene únicamente el código fuente del proyecto ATLAS-AI. 
+            
+            ### 📦 Contenido de esta Release
+            
+            - ✅ Código fuente Python completo
+            - ✅ Archivos de configuración
+            - ✅ Dockerfile y docker-compose.yml
+            - ✅ requirements.txt
+            - ✅ README.md y LICENSE
+            - ❌ Modelos GGUF (no incluidos)
+            - ❌ Datos y bases de datos (no incluidos)
+            - ❌ Logs y archivos temporales (no incluidos)
+            
+            ### 📋 Instrucciones de Instalación
+            
+            1. Extrae el archivo ZIP
+            2. Instala las dependencias:
+               ```bash
+               pip install -r requirements.txt
+               ```
+            3. Instala llama-cpp-python con soporte CUDA:
+               ```bash
+               CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python
+               ```
+            4. Configura tu archivo `.env` con las rutas a tus modelos
+            5. Descarga los modelos GGUF necesarios por separado
+            
+            ### 🔄 Migración
+            
+            Si estás usando esta versión, considera migrar a la nueva versión cuando esté disponible, ya que esta versión será deprecada.
+            
+            ### 📝 Notas
+            
+            - Los modelos GGUF deben descargarse por separado debido a su tamaño
+            - La base de datos ChromaDB se creará automáticamente al ejecutar el sistema
+            - Consulta el README.md para más información sobre configuración y uso
+            
+            ---
+            
+            **Fecha de release:** ${{ github.event.head_commit.timestamp || github.event.created_at }}
+            **Commit:** ${{ github.sha }}
+          files: |
+            ATLAS-AI-source-${{ steps.get_version.outputs.version }}.zip
+          draft: false
+          prerelease: false
+
+      - name: Limpiar archivos temporales
+        if: always()
+        run: |
+          rm -rf release-source
+          rm -f ATLAS-AI-source-*.zip
+
+
